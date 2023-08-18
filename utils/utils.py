@@ -70,7 +70,8 @@ def collate_MIL_survival_graph(batch):
 
 
 def get_simple_loader(dataset, batch_size=1):
-    kwargs = {'num_workers': 4} if device.type == "cuda" else {}
+    # kwargs = {'num_workers': 4} if device.type == "cuda" else {}
+    kwargs = {'num_workers': 0} if device.type == "cuda" else {}
     loader = DataLoader(dataset, batch_size=batch_size, sampler = sampler.SequentialSampler(dataset), collate_fn = collate_MIL, **kwargs)
     return loader 
 
@@ -86,10 +87,14 @@ def get_split_loader(split_dataset, training = False, testing = False, weighted 
     else:
         collate = collate_MIL_survival
 
-    kwargs = {'num_workers': 4} if device.type == "cuda" else {}
+    # kwargs = {'num_workers': 4} if device.type == "cuda" else {}
+    kwargs = {'num_workers': 0} if device.type == "cuda" else {}
     if not testing:
+        import pdb
+        # pdb.set_trace()
         if training:
             if weighted:
+                #split_dataset:datasets.dataset_survival.Generic_Split
                 weights = make_weights_for_balanced_classes_split(split_dataset)
                 loader = DataLoader(split_dataset, batch_size=batch_size, sampler = WeightedRandomSampler(weights, len(weights)), collate_fn = collate, **kwargs)    
             else:
@@ -131,7 +136,7 @@ def generate_split(cls_ids, val_num, test_num, samples, n_splits = 5,
     seed = 7, label_frac = 1.0, custom_test_ids = None):
     indices = np.arange(samples).astype(int)
     
-    pdb.set_trace()
+    # pdb.set_trace()
     if custom_test_ids is not None:
         indices = np.setdiff1d(indices, custom_test_ids)
 
@@ -182,8 +187,18 @@ def calculate_error(Y_hat, Y):
     return error
 
 def make_weights_for_balanced_classes_split(dataset):
-    N = float(len(dataset))                                           
-    weight_per_class = [N/len(dataset.slide_cls_ids[c]) for c in range(len(dataset.slide_cls_ids))]                                                                                                     
+    N = float(len(dataset))
+    import pdb
+    # pdb.set_trace()
+    # weight_per_class = [N/len(dataset.slide_cls_ids[c]) for c in range(len(dataset.slide_cls_ids))]                                                         
+    weight_per_class = []
+    for c in range(len(dataset.slide_cls_ids)):
+        class_length = len(dataset.slide_cls_ids[c])
+        if class_length == 0:
+            # 如果类别长度为0，将权重设为0或其他合适的值
+            weight_per_class.append(0)
+        else:
+            weight_per_class.append(N / class_length)                                 
     weight = [0] * int(N)                                           
     for idx in range(len(dataset)):   
         y = dataset.getlabel(idx)                        
@@ -226,6 +241,9 @@ def nll_loss(hazards, S, Y, c, alpha=0.4, eps=1e-7):
     # after padding, S(0) = S[1], S(1) = S[2], etc, h(0) = h[0]
     #h[y] = h(1)
     #S[1] = S(1)
+    import pdb
+    # pdb.set_trace()
+    Y = torch.as_tensor(Y,dtype=torch.int64)
     uncensored_loss = -(1 - c) * (torch.log(torch.gather(S_padded, 1, Y).clamp(min=eps)) + torch.log(torch.gather(hazards, 1, Y).clamp(min=eps)))
     censored_loss = - c * torch.log(torch.gather(S_padded, 1, Y+1).clamp(min=eps))
     neg_l = censored_loss + uncensored_loss
@@ -314,7 +332,8 @@ def get_custom_exp_code(args):
         param_code += 'MIFCN'
     elif args.model_type == 'dgc':
         agg = 'latent' if args.edge_agg == 'latent' else 'spatial'
-        param_code += 'DGC_%s%s' % (agg)
+        # param_code += 'DGC_%s%s' % (agg)
+        param_code += 'DGC_%s' % (agg)
     elif args.model_type == 'patchgcn':
         param_code += 'PatchGCN'
     else:

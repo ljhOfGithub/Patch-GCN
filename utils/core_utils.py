@@ -184,6 +184,7 @@ def train(datasets: tuple, cur: int, args: Namespace):
                 train_loop_survival_cluster(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn, reg_fn, args.lambda_reg, args.gc, VAE)
                 stop = validate_survival_cluster(cur, epoch, model, val_loader, args.n_classes, early_stopping, monitor_cindex, writer, loss_fn, reg_fn, args.lambda_reg, args.results_dir, VAE)
             else:
+                # import pdb; # pdb.set_trace()
                 train_loop_survival(epoch, model, train_loader, optimizer, args.n_classes, writer, loss_fn, reg_fn, args.lambda_reg, args.gc)
                 stop = validate_survival(cur, epoch, model, val_loader, args.n_classes, early_stopping, monitor_cindex, writer, loss_fn, reg_fn, args.lambda_reg, args.results_dir)
 
@@ -199,12 +200,22 @@ def train_loop_survival(epoch, model, loader, optimizer, n_classes, writer=None,
     device=torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     model.train()
     train_loss_surv, train_loss = 0., 0.
-
+    
     print('\n')
     all_risk_scores = np.zeros((len(loader)))
     all_censorships = np.zeros((len(loader)))
     all_event_times = np.zeros((len(loader)))
-
+    # for att in dir(loader):    
+    #     print (att, getattr(loader,att))
+    # import pdb; # pdb.set_trace()
+    
+    for index, (data_WSI, label, event_time, c) in enumerate(loader):
+        print(f"Index: {index}")
+        print(f"data_WSI: {data_WSI}")
+        print(f"label: {label}")
+        print(f"event_time: {event_time}")
+        print(f"c: {c}")
+        print("\n")
     for batch_idx, (data_WSI, label, event_time, c) in enumerate(loader):
 
         if isinstance(data_WSI, torch_geometric.data.Batch):
@@ -248,7 +259,9 @@ def train_loop_survival(epoch, model, loader, optimizer, n_classes, writer=None,
     train_loss /= len(loader)
 
     # c_index = concordance_index(all_event_times, all_risk_scores, event_observed=1-all_censorships) 
+    # import pdb; pdb.set_trace() #经过
     c_index = concordance_index_censored((1-all_censorships).astype(bool), all_event_times, all_risk_scores, tied_tol=1e-08)[0]
+    # c_index = concordance_index_censored((all_censorships).astype(bool), all_event_times, all_risk_scores, tied_tol=1e-08)[0]
 
     print('Epoch: {}, train_loss_surv: {:.4f}, train_loss: {:.4f}, train_c_index: {:.4f}'.format(epoch, train_loss_surv, train_loss, c_index))
 
@@ -297,7 +310,9 @@ def validate_survival(cur, epoch, model, loader, n_classes, early_stopping=None,
 
     val_loss_surv /= len(loader)
     val_loss /= len(loader)
+    # import pdb; pdb.set_trace()#经过
     c_index = concordance_index_censored((1-all_censorships).astype(bool), all_event_times, all_risk_scores, tied_tol=1e-08)[0]
+    # c_index = concordance_index_censored((1-all_censorships).astype(bool), all_event_times, all_risk_scores, tied_tol=1e-08)[0]
 
     if writer:
         writer.add_scalar('val/loss_surv', val_loss_surv, epoch)
@@ -330,8 +345,9 @@ def summary_survival(model, loader, n_classes):
     for batch_idx, (data_WSI, label, event_time, c) in enumerate(loader):
         
         if isinstance(data_WSI, torch_geometric.data.Batch):
-            if data_WSI.x.shape[0] > 100_000:
-                continue
+            # if data_WSI.x.shape[0] > 100_000:
+                # continue
+            pass
 
         data_WSI = data_WSI.to(device)
         label = label.to(device)
@@ -341,15 +357,20 @@ def summary_survival(model, loader, n_classes):
         with torch.no_grad():
             hazards, survival, Y_hat, _, _ = model(x_path=data_WSI)
 
-        risk = np.asscalar(-torch.sum(survival, dim=1).cpu().numpy())
-        event_time = np.asscalar(event_time)
-        c = np.asscalar(c)
+        # risk = np.asscalar(-torch.sum(survival, dim=1).cpu().numpy())
+        risk = np.ndarray.item(-torch.sum(survival, dim=1).cpu().numpy())
+        # event_time = np.asscalar(event_time)
+        event_time = np.ndarray.item(event_time.numpy())
+        # c = np.asscalar(c)
+        c = np.ndarray.item(c.numpy())
         all_risk_scores[batch_idx] = risk
         all_censorships[batch_idx] = c
         all_event_times[batch_idx] = event_time
         patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'risk': risk, 'disc_label': label.item(), 'survival': event_time, 'censorship': c}})
-
+    # import pdb; pdb.set_trace()
     c_index = concordance_index_censored((1-all_censorships).astype(bool), all_event_times, all_risk_scores, tied_tol=1e-08)[0]
+    # c_index = concordance_index_censored((1-all_censorships).astype(bool), all_event_times, all_risk_scores, tied_tol=1e-08)[0]
+    
     return patient_results, c_index
 
 
@@ -401,6 +422,7 @@ def train_loop_survival_cluster(epoch, model, loader, optimizer, n_classes, writ
     train_loss /= len(loader)
 
     # c_index = concordance_index(all_event_times, all_risk_scores, event_observed=1-all_censorships) 
+    # import pdb; pdb.set_trace()
     c_index = concordance_index_censored((1-all_censorships).astype(bool), all_event_times, all_risk_scores, tied_tol=1e-08)[0]
 
     print('Epoch: {}, train_loss_surv: {:.4f}, train_loss: {:.4f}, train_c_index: {:.4f}'.format(epoch, train_loss_surv, train_loss, c_index))
@@ -445,7 +467,9 @@ def validate_survival_cluster(cur, epoch, model, loader, n_classes, early_stoppi
 
     val_loss_surv /= len(loader)
     val_loss /= len(loader)
+    # import pdb; pdb.set_trace()
     c_index = concordance_index_censored((1-all_censorships).astype(bool), all_event_times, all_risk_scores, tied_tol=1e-08)[0]
+    # c_index = concordance_index_censored((all_censorships).astype(bool), all_event_times, all_risk_scores, tied_tol=1e-08)[0]
 
     if writer:
         writer.add_scalar('val/loss_surv', val_loss_surv, epoch)
@@ -484,13 +508,18 @@ def summary_survival_cluster(model, loader, n_classes):
         with torch.no_grad():
             hazards, survival, Y_hat, _, _ = model(x_path=data_WSI, cluster_id=cluster_id)
 
-        risk = np.asscalar(-torch.sum(survival, dim=1).cpu().numpy())
-        event_time = np.asscalar(event_time)
-        c = np.asscalar(c)
+        # risk = np.asscalar(-torch.sum(survival, dim=1).cpu().numpy())
+        risk = np.ndarray.item(-torch.sum(survival, dim=1).cpu().numpy())
+        # event_time = np.asscalar(event_time)
+        event_time = np.ndarray.item(event_time.numpy())
+        # c = np.asscalar(c)
+        c = np.ndarray.item(c.numpy())
         all_risk_scores[batch_idx] = risk
         all_censorships[batch_idx] = c
         all_event_times[batch_idx] = event_time
         patient_results.update({slide_id: {'slide_id': np.array(slide_id), 'risk': risk, 'disc_label': label.item(), 'survival': event_time, 'censorship': c}})
-
+    # import pdb; pdb.set_trace()
     c_index = concordance_index_censored((1-all_censorships).astype(bool), all_event_times, all_risk_scores, tied_tol=1e-08)[0]
+    # c_index = concordance_index_censored((all_censorships).astype(bool), all_event_times, all_risk_scores, tied_tol=1e-08)[0]
+    
     return patient_results, c_index

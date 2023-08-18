@@ -104,6 +104,8 @@ class Generic_WSI_Survival_Dataset(Dataset):
             slide_data.at[i, 'label'] = label_dict[key]
 
         self.bins = q_bins
+        # import pdb
+        # pdb.set_trace()
         self.num_classes=len(self.label_dict)
         patients_df = slide_data.drop_duplicates(['case_id'])
         self.patient_data = {'case_id':patients_df['case_id'].values, 'label':patients_df['label'].values}
@@ -257,9 +259,23 @@ class Generic_MIL_Survival_Dataset(Generic_WSI_Survival_Dataset):
                     from datasets.BatchWSI import BatchWSI
                     for slide_id in slide_ids:
                         wsi_path = os.path.join(data_dir, 'graph_euclidean_files', '{}.pt'.format(slide_id.rstrip('.svs')))
+                        # wsi_path = '/home/jupyter-ljh/data/mntdata/data0/LI_jihao/BRCA_fea/h5_files/tcga_brca_20x_features/graph_euclidean_files/TCGA-3C-AALI-01Z-00-DX1.F6E9A5DF-D8FB-45CF-B4BD-C6B76294C291.pt'
+                        # wsi_path = '/home/jupyter-ljh/data/mntdata/data0/LI_jihao/BRCA_fea/TCGA-BH-A0DV-01Z-00-DX1.2F0B5FB3-40F0-4D27-BFAC-390FB9A42B39.pt'
+                        #下面的是用于torch1.7的
                         wsi_bag = torch.load(wsi_path)
+                        # wsi_bag = torch.load(wsi_path).to_dict()
+                        from torch_geometric.data.data import Data
+                        #下面的是用于torch2.0的
+                        wsi_bag = Data(**wsi_bag.__dict__)
+                        # wsi_bag_dict = torch.load(wsi_path)
+                        # wsi_bag = Data.from_dict(wsi_bag_dict)
+                        #可能是我读取的特征文件pt文件有问题导致
+                        # for k, v in wsi_bag.items():  # k 参数名 v 对应参数值
+                        #     print(k, v)
+                        #     print('#')
                         path_features.append(wsi_bag)
-
+                    import pdb
+                    # pdb.set_trace()
                     path_features = BatchWSI.from_data_list(path_features, update_cat_dims={'edge_latent': 1})
                     return (path_features, label, event_time, c)
 
@@ -280,6 +296,8 @@ class Generic_Split(Generic_MIL_Survival_Dataset):
         self.num_classes = num_classes
         self.label_col = label_col
         self.patient_dict = patient_dict
+        # import pdb
+        # pdb.set_trace()
         self.slide_cls_ids = [[] for i in range(self.num_classes)]
         for i in range(self.num_classes):
             self.slide_cls_ids[i] = np.where(self.slide_data['label'] == i)[0]

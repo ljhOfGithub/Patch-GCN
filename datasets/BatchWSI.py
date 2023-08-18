@@ -20,8 +20,12 @@ class BatchWSI(torch_geometric.data.Batch):
             Additionally, creates assignment batch vectors for each key in
             :obj:`follow_batch`.
             Will exclude any keys given in :obj:`exclude_keys`."""
-
+            import pdb
+            # pdb.set_trace()
+            #AttributeError: 'Tensor' object has no attribute 'keys'
+            #cls:datasets.BatchWSI.BatchWSI
             keys = list(set(data_list[0].keys) - set(exclude_keys))
+            # keys = list(set(data_list[0]) - set(exclude_keys))
             assert 'batch' not in keys and 'ptr' not in keys
 
             batch = cls()
